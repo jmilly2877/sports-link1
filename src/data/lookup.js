@@ -1,4 +1,5 @@
 import { PLAYERS, TEAMS, COLLEGE_ALIASES } from "./database.js";
+import { TEAM_POPULARITY, PLAYER_FAME } from "./scoring.js";
 
 const norm = (s) => s.toLowerCase().trim();
 
@@ -89,9 +90,7 @@ export function findCollege(input) {
   const key = norm(input);
   if (COLLEGE_ALIASES[key]) return COLLEGE_ALIASES[key];
   for (const p of PLAYERS) {
-    for (const c of getColleges(p)) {
-      if (norm(c) === key) return c;
-    }
+    for (const c of getColleges(p)) { if (norm(c) === key) return c; }
   }
   return null;
 }
@@ -195,11 +194,11 @@ export function getStats() {
   const colleges = new Set();
   PLAYERS.forEach(p => getColleges(p).forEach(c => colleges.add(c)));
   const numbers = new Set(PLAYERS.flatMap(p => p.numbers));
-  return { players: PLAYERS.length, teams: TEAMS.length, colleges: colleges.size, numbers: numbers.size };
+  return { players: PLAYERS.length, teams: 92, colleges: colleges.size, numbers: numbers.size };
 }
 
 // ============================================================
-//  DAILY CHALLENGE — deterministic team from date
+//  DAILY CHALLENGE
 // ============================================================
 const DAILY_TEAMS = TEAMS.filter(t => {
   const players = teamToPlayers.get(norm(t.name));
@@ -214,60 +213,95 @@ export function getDailyTeam() {
     hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
     hash |= 0;
   }
-  const idx = Math.abs(hash) % DAILY_TEAMS.length;
-  return DAILY_TEAMS[idx];
+  return DAILY_TEAMS[Math.abs(hash) % DAILY_TEAMS.length];
 }
 
 // ============================================================
 //  RARITY SCORING
 // ============================================================
+
+function getTeamPop(teamName) {
+  return TEAM_POPULARITY[teamName] || 3;
+}
+
+function getPlayerFame(playerName) {
+  return PLAYER_FAME[playerName] || 3;
+}
+
 /**
- * Score how "rare" a chain link is.
- * Fewer alternatives = more points.
+ * Smart rarity scoring:
  *
- * From TEAM → PLAYER: fewer players on that team = more points
- * From PLAYER → TEAM: fewer teams they played on = more points
- * From PLAYER → COLLEGE: fewer players from that college = more points
- * From PLAYER → NUMBER: fewer players who wore that number = more points
- * From COLLEGE → PLAYER: fewer players from that college = more points
- * From NUMBER → PLAYER: fewer players who wore that number = more points
+ * TEAM → PLAYER:  player fame × team obscurity
+ *   Tom Brady from Patriots = tier 1 × pop 1 = 4 pts
+ *   Danny Amendola from Patriots = tier 3 × pop 1 = 12 pts  
+ *   Deep cut from Kings = tier 5 × pop 4 = 80 pts
+ *
+ * PLAYER → TEAM:  team obscurity × 8
+ *   Going to Yankees = pop 1 × 8 = 8 pts
+ *   Going to Kings = pop 4 × 8 = 32 pts
+ *
+ * PLAYER → COLLEGE:  fewer players from that college = more points
+ *   Alabama (many players) = ~5 pts
+ *   Savannah State (1 player) = 100 pts
+ *
+ * PLAYER → NUMBER:  fewer players wearing it = more points
+ *   #12 (many players) = ~8 pts
+ *   #75 (rare) = 50+ pts
+ *
+ * COLLEGE → PLAYER:  player fame × college rarity
+ * NUMBER → PLAYER:  player fame × number rarity
  */
 export function getRarityScore(fromItem, fromType, toName, toType) {
-  let alternatives = 1;
+  let points = 10; // default
 
   if (fromType === "team" && toType === "player") {
-    const players = teamToPlayers.get(norm(fromItem));
-    alternatives = players ? players.length : 1;
-  }
-  else if (fromType === "player" && toType === "team") {
-    const player = findPlayer(fromItem);
-    alternatives = player ? player.teams.length : 1;
-  }
-  else if (fromType === "player" && toType === "college") {
-    const collegePlayers = collegeToPlayers.get(norm(toName));
-    alternatives = collegePlayers ? collegePlayers.length : 1;
-    // Bonus: choosing college over team is creative
-    alternatives = Math.max(1, alternatives - 1);
-  }
-  else if (fromType === "player" && toType === "number") {
-    const numPlayers = numberToPlayers.get(toName);
-    alternatives = numPlayers ? numPlayers.length : 1;
-    // Bonus: numbers are creative plays
-    alternatives = Math.max(1, alternatives - 2);
-  }
-  else if (fromType === "college" && toType === "player") {
-    const players = collegeToPlayers.get(norm(fromItem));
-    alternatives = players ? players.length : 1;
-  }
-  else if (fromType === "number" && toType === "player") {
-    const players = numberToPlayers.get(fromItem);
-    alternatives = players ? players.length : 1;
+    // Player fame (1=icon, 5=deep cut) × team popularity (1=mega, 5=small)
+    const fame = getPlayerFame(toName);
+    const pop = getTeamPop(fromItem);
+    points = fame * pop * 4;
   }
 
-  // Score: fewer alternatives = more points
-  // 1 alternative (only option) = 100 pts
-  // 2 = 50, 3 = 33, 5 = 20, 10 = 10, 20 = 5, 50+ = 2
-  if (alternatives <= 0) alternatives = 1;
-  const raw = Math.round(100 / alternatives);
-  return Math.max(1, Math.min(100, raw));
+  else if (fromType === "player" && toType === "team") {
+    // More obscure teams = more points
+    const pop = getTeamPop(toName);
+    points = pop * 8;
+  }
+
+  else if (fromType === "player" && toType === "college") {
+    // Fewer players from this college = more points
+    const collegePlayers = collegeToPlayers.get(norm(toName));
+    const count = collegePlayers ? collegePlayers.length : 1;
+    points = Math.round(100 / count);
+    // Bonus: using college is a creative move
+    points = Math.round(points * 1.3);
+  }
+
+  else if (fromType === "player" && toType === "number") {
+    // Fewer players wearing this number = more points
+    const numPlayers = numberToPlayers.get(toName);
+    const count = numPlayers ? numPlayers.length : 1;
+    points = Math.round(100 / count);
+    // Bonus: using numbers is creative
+    points = Math.round(points * 1.5);
+  }
+
+  else if (fromType === "college" && toType === "player") {
+    // Player fame × college rarity
+    const fame = getPlayerFame(toName);
+    const collegePlayers = collegeToPlayers.get(norm(fromItem));
+    const count = collegePlayers ? collegePlayers.length : 1;
+    const collegeRarity = Math.round(50 / count);
+    points = fame * 3 + collegeRarity;
+  }
+
+  else if (fromType === "number" && toType === "player") {
+    // Player fame × number rarity
+    const fame = getPlayerFame(toName);
+    const numPlayers = numberToPlayers.get(fromItem);
+    const count = numPlayers ? numPlayers.length : 1;
+    const numRarity = Math.round(50 / count);
+    points = fame * 3 + numRarity;
+  }
+
+  return Math.max(1, Math.min(100, points));
 }
