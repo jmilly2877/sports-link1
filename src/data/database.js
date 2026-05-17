@@ -369,7 +369,7 @@ export const PLAYERS = [
   { name: "CJ McCollum", teams: ["Portland Trail Blazers", "New Orleans Pelicans"], college: "Lehigh", numbers: [3], league: "NBA" },
   { name: "Dominique Wilkins", teams: ["Atlanta Hawks", "Los Angeles Clippers", "Boston Celtics", "San Antonio Spurs", "Orlando Magic"], college: "Georgia", numbers: [21], league: "NBA" },
   { name: "James Worthy", teams: ["Los Angeles Lakers"], college: "North Carolina", numbers: [42], league: "NBA" },
-  { name: "Robert Parish", teams: ["Golden State Warriors", "Boston Celtics", "Charlotte Hornets", "Chicago Bulls"], college: "Centenary", numbers: [00], league: "NBA" },
+  { name: "Robert Parish", teams: ["Golden State Warriors", "Boston Celtics", "Charlotte Hornets", "Chicago Bulls"], college: "Centenary", numbers: [0], league: "NBA" },
   { name: "Bill Walton", teams: ["Portland Trail Blazers", "San Diego Clippers", "Boston Celtics"], college: "UCLA", numbers: [32, 5], league: "NBA" },
   { name: "Pete Maravich", teams: ["Atlanta Hawks", "New Orleans Jazz", "Boston Celtics"], college: "LSU", numbers: [44, 7], league: "NBA" },
   { name: "George Gervin", teams: ["San Antonio Spurs", "Chicago Bulls"], college: "Eastern Michigan", numbers: [44], league: "NBA" },
