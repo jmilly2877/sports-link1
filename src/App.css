@@ -1,242 +1,360 @@
-import { useState, useRef, useEffect } from "react";
-import { validateStartTeam, validateChainLink, getStats } from "./data/lookup.js";
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-const TYPE_LABELS = { team: "TEAM", player: "PLAYER", college: "COLLEGE", number: "NUMBER" };
-const TYPE_COLORS = { team: "#ff4444", player: "#44aaff", college: "#ffaa00", number: "#44dd66" };
-const TYPE_BG = { team: "rgba(255,68,68,0.08)", player: "rgba(68,170,255,0.08)", college: "rgba(255,170,0,0.08)", number: "rgba(68,221,102,0.08)" };
-const TYPE_HINTS = {
-  team: "Name a player who played on this team",
-  player: "Name one of their teams, their college, or a jersey number",
-  college: "Name a player who went to this school",
-  number: "Name a player who wore this number",
-};
-
-function History({ history }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
-  }, [history]);
-
-  return (
-    <div ref={ref} className="history-box">
-      {history.map((item, i) => (
-        <div key={i} className="history-item">
-          <div className="history-link" style={{ borderLeft: `3px solid ${TYPE_COLORS[item.type]}` }}>
-            <span className="history-badge" style={{ background: TYPE_COLORS[item.type] }}>
-              {TYPE_LABELS[item.type]}
-            </span>
-            <span className="history-name" style={{ color: TYPE_COLORS[item.type] }}>{item.name}</span>
-          </div>
-          {i < history.length - 1 && <div className="chain-connector">
-            <div className="chain-dot" />
-            <div className="chain-line" />
-            <div className="chain-dot" />
-          </div>}
-        </div>
-      ))}
-    </div>
-  );
+body {
+  background: #08080d;
+  color: #e8e8e8;
+  font-family: 'Barlow Condensed', 'Impact', 'Arial Narrow', sans-serif;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
-function Landing({ onStart }) {
-  const stats = getStats();
-  return (
-    <div className="landing">
-      <div className="logo-area">
-        <div className="logo-icon">🔗</div>
-        <h1 className="title">SPORTS<br/>LINK</h1>
-      </div>
-      <p className="tagline">Chain teams, players, colleges & numbers.<br/>How deep does your knowledge go?</p>
-
-      <button className="start-btn" onClick={onStart}>
-        <span className="start-btn-text">PLAY THE CHAIN GAME</span>
-        <span className="start-btn-arrow">→</span>
-      </button>
-
-      <div className="example-box">
-        <div className="example-label">EXAMPLE CHAIN</div>
-        <div className="example-chain">
-          <span className="ex" style={{background: TYPE_COLORS.team}}>Pittsburgh Steelers</span>
-          <span className="ex-arrow">→</span>
-          <span className="ex" style={{background: TYPE_COLORS.player}}>Troy Polamalu</span>
-          <span className="ex-arrow">→</span>
-          <span className="ex" style={{background: TYPE_COLORS.college}}>USC</span>
-          <span className="ex-arrow">→</span>
-          <span className="ex" style={{background: TYPE_COLORS.player}}>Carson Palmer</span>
-          <span className="ex-arrow">→</span>
-          <span className="ex" style={{background: TYPE_COLORS.team}}>Cincinnati Bengals</span>
-          <span className="ex-arrow">→</span>
-          <span className="ex" style={{background: TYPE_COLORS.player}}>Joe Burrow</span>
-          <span className="ex-arrow">→</span>
-          <span className="ex" style={{background: TYPE_COLORS.number}}>9</span>
-        </div>
-      </div>
-
-      <div className="stats-bar">
-        <div className="stat"><span className="stat-num">{stats.players}</span><span className="stat-label">PLAYERS</span></div>
-        <div className="stat-divider" />
-        <div className="stat"><span className="stat-num">{stats.teams}</span><span className="stat-label">TEAMS</span></div>
-        <div className="stat-divider" />
-        <div className="stat"><span className="stat-num">{stats.colleges}</span><span className="stat-label">COLLEGES</span></div>
-      </div>
-
-      <p className="league-tags">
-        <span className="league-tag">NFL</span>
-        <span className="league-tag">NBA</span>
-        <span className="league-tag">MLB</span>
-      </p>
-    </div>
-  );
+.container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
 }
 
-function Game({ onBack }) {
-  const [phase, setPhase] = useState("start");
-  const [history, setHistory] = useState([]);
-  const [currentItem, setCurrentItem] = useState(null);
-  const [currentType, setCurrentType] = useState(null);
-  const [input, setInput] = useState("");
-  const [error, setError] = useState("");
-  const [gameOver, setGameOver] = useState(false);
-  const [flash, setFlash] = useState(false);
-  const inputRef = useRef(null);
-
-  useEffect(() => {
-    if (inputRef.current) inputRef.current.focus();
-  }, [phase, error, history]);
-
-  const triggerFlash = () => {
-    setFlash(true);
-    setTimeout(() => setFlash(false), 400);
-  };
-
-  const startGame = () => {
-    if (!input.trim()) return;
-    setError("");
-    const result = validateStartTeam(input.trim());
-    if (result.valid) {
-      const name = result.corrected_name;
-      setCurrentItem(name);
-      setCurrentType("team");
-      setHistory([{ name, type: "team" }]);
-      setPhase("playing");
-      setInput("");
-      triggerFlash();
-    } else {
-      setError(result.explanation);
-    }
-  };
-
-  const submitAnswer = () => {
-    if (!input.trim()) return;
-    setError("");
-    const result = validateChainLink(currentItem, currentType, input.trim());
-    if (result.valid) {
-      const name = result.corrected_name;
-      const type = result.type;
-      setHistory((h) => [...h, { name, type }]);
-      setCurrentItem(name);
-      setCurrentType(type);
-      setInput("");
-      triggerFlash();
-    } else {
-      setError(result.explanation);
-    }
-  };
-
-  const giveUp = () => setGameOver(true);
-  const reset = () => {
-    setPhase("start"); setHistory([]); setCurrentItem(null);
-    setCurrentType(null); setInput(""); setError(""); setGameOver(false);
-  };
-
-  const activeColor = currentType ? TYPE_COLORS[currentType] : "#ff4444";
-  const activeBg = currentType ? TYPE_BG[currentType] : "transparent";
-
-  if (gameOver) {
-    return (
-      <div className="container">
-        <div className="game-over-box">
-          <div className="game-over-icon">🏁</div>
-          <div className="game-over-title">GAME OVER</div>
-          <div className="final-score-row">
-            <span className="final-score">{history.length}</span>
-            <span className="final-score-label">LINKS</span>
-          </div>
-          <History history={history} />
-          <div className="btn-row">
-            <button className="btn-primary" onClick={reset}>PLAY AGAIN</button>
-            <button className="btn-secondary" onClick={onBack}>MENU</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="container">
-      <div className="header">
-        <button className="back-btn" onClick={onBack}>← MENU</button>
-        <div className="score-pill">
-          <span className="score-pill-label">CHAIN</span>
-          <span className="score-pill-num">{history.length}</span>
-        </div>
-      </div>
-
-      {phase === "start" && (
-        <div className="start-box">
-          <div className="mode-title">START YOUR CHAIN</div>
-          <p className="mode-desc">Pick any NFL, NBA, or MLB team to begin.</p>
-          <div className="input-row">
-            <input
-              ref={inputRef}
-              className="game-input"
-              style={{ borderColor: "#ff4444", color: "#ff4444" }}
-              placeholder="Enter a team..."
-              value={input}
-              onChange={(e) => { setInput(e.target.value); setError(""); }}
-              onKeyDown={(e) => e.key === "Enter" && startGame()}
-            />
-            <button className="btn-submit" style={{ background: "#ff4444" }} onClick={startGame}>GO</button>
-          </div>
-          {error && <div className="error">{error}</div>}
-        </div>
-      )}
-
-      {phase === "playing" && (
-        <div className="play-box">
-          <div className={`current-section ${flash ? "flash" : ""}`} style={{ borderColor: activeColor, background: activeBg }}>
-            <div className="current-top-row">
-              <span className="type-badge" style={{ background: activeColor }}>{TYPE_LABELS[currentType]}</span>
-              <span className="current-label">CURRENT</span>
-            </div>
-            <div className="current-value" style={{ color: activeColor }}>{currentItem}</div>
-            <div className="hint">{TYPE_HINTS[currentType]}</div>
-          </div>
-
-          {history.length > 0 && <History history={history} />}
-
-          <div className="input-row">
-            <input
-              ref={inputRef}
-              className="game-input"
-              style={{ borderColor: activeColor, color: activeColor, background: activeBg }}
-              placeholder="Your answer..."
-              value={input}
-              onChange={(e) => { setInput(e.target.value); setError(""); }}
-              onKeyDown={(e) => e.key === "Enter" && submitAnswer()}
-            />
-            <button className="btn-submit" style={{ background: activeColor }} onClick={submitAnswer}>→</button>
-          </div>
-          {error && <div className="error">{error}</div>}
-          <button className="give-up-btn" onClick={giveUp}>I'M STUCK — END GAME</button>
-        </div>
-      )}
-    </div>
-  );
+/* ===== LANDING ===== */
+.landing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+  padding: 40px 0 32px;
+  gap: 28px;
 }
 
-export default function App() {
-  const [playing, setPlaying] = useState(false);
-  if (playing) return <Game onBack={() => setPlaying(false)} />;
-  return <div className="container"><Landing onStart={() => setPlaying(true)} /></div>;
+.logo-area { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.logo-icon { font-size: 44px; filter: drop-shadow(0 0 24px rgba(255,68,68,0.5)); }
+.title {
+  font-size: clamp(52px, 12vw, 80px);
+  font-weight: 900;
+  letter-spacing: 8px;
+  line-height: 0.95;
+  background: linear-gradient(160deg, #ff4444 20%, #ffaa00 80%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tagline {
+  font-size: 16px;
+  color: #777;
+  line-height: 1.6;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+
+.start-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 18px 32px;
+  background: linear-gradient(135deg, #ff4444, #cc2200);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 24px rgba(255,68,68,0.3);
+}
+.start-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 32px rgba(255,68,68,0.4); }
+.start-btn-text { font-family: inherit; font-size: 20px; font-weight: 800; letter-spacing: 3px; color: #fff; }
+.start-btn-arrow { font-size: 22px; color: rgba(255,255,255,0.7); }
+
+/* ===== EXAMPLE ===== */
+.example-box {
+  width: 100%;
+  padding: 16px 20px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid #1a1a22;
+  border-radius: 12px;
+}
+.example-label { font-size: 10px; color: #444; letter-spacing: 3px; font-weight: 700; margin-bottom: 12px; }
+.example-chain { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; justify-content: center; }
+.ex {
+  padding: 3px 10px;
+  border-radius: 4px;
+  color: #000;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+.ex-arrow { color: #333; font-size: 12px; }
+
+/* ===== STATS ===== */
+.stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px 28px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid #1a1a22;
+  border-radius: 10px;
+}
+.stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.stat-num { font-size: 26px; font-weight: 900; color: #e8e8e8; }
+.stat-label { font-size: 9px; color: #555; letter-spacing: 3px; font-weight: 600; }
+.stat-divider { width: 1px; height: 28px; background: #222; }
+
+.league-tags { display: flex; gap: 10px; }
+.league-tag {
+  padding: 4px 14px;
+  border: 1px solid #222;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #555;
+}
+
+/* ===== HEADER ===== */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  max-width: 520px;
+  margin-bottom: 16px;
+}
+.back-btn {
+  background: none;
+  border: 1px solid #222;
+  color: #666;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  transition: all 0.15s;
+}
+.back-btn:hover { border-color: #444; color: #aaa; }
+
+.score-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: rgba(255,170,0,0.08);
+  border: 1px solid rgba(255,170,0,0.2);
+  border-radius: 20px;
+}
+.score-pill-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #888; }
+.score-pill-num { font-size: 22px; font-weight: 900; color: #ffaa00; }
+
+/* ===== START ===== */
+.start-box { max-width: 520px; width: 100%; text-align: center; margin-top: 60px; }
+.mode-title { font-size: clamp(28px, 6vw, 40px); font-weight: 900; letter-spacing: 4px; margin-bottom: 10px; }
+.mode-desc { font-size: 16px; color: #666; margin-bottom: 28px; font-family: 'Barlow', sans-serif; font-weight: 400; }
+
+/* ===== PLAY ===== */
+.play-box { max-width: 520px; width: 100%; display: flex; flex-direction: column; gap: 14px; }
+
+.current-section {
+  text-align: center;
+  padding: 20px 16px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 12px;
+  border: 1px solid #222;
+  transition: all 0.3s;
+}
+.current-section.flash { animation: flashIn 0.4s ease-out; }
+@keyframes flashIn {
+  0% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+
+.current-top-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px; }
+.current-label { font-size: 11px; color: #555; letter-spacing: 3px; font-weight: 600; }
+.type-badge {
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: #000;
+}
+.current-value {
+  font-size: clamp(26px, 6vw, 38px);
+  font-weight: 900;
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+.hint { font-size: 13px; color: #555; font-family: 'Barlow', sans-serif; }
+
+/* ===== INPUT ===== */
+.input-row { display: flex; gap: 8px; }
+.game-input {
+  flex: 1;
+  padding: 14px 18px;
+  font-size: 18px;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 600;
+  background: rgba(255,255,255,0.02);
+  border: 2px solid #222;
+  border-radius: 10px;
+  color: #e8e8e8;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.game-input::placeholder { color: #444; font-weight: 400; }
+.game-input:focus { background: rgba(255,255,255,0.03); }
+
+.btn-submit {
+  padding: 14px 22px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 2px;
+  min-width: 58px;
+  transition: transform 0.1s, opacity 0.15s;
+}
+.btn-submit:hover { transform: scale(1.05); opacity: 0.9; }
+
+/* ===== BUTTONS ===== */
+.btn-primary {
+  padding: 14px 28px;
+  font-size: 16px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ff4444, #cc2200);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 2px;
+  transition: transform 0.1s;
+}
+.btn-primary:hover { transform: scale(1.03); }
+
+.btn-secondary {
+  padding: 14px 28px;
+  font-size: 16px;
+  font-weight: 700;
+  background: transparent;
+  color: #888;
+  border: 1px solid #333;
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 2px;
+}
+.btn-secondary:hover { border-color: #555; color: #bbb; }
+
+.give-up-btn {
+  background: none;
+  border: 1px solid #1a1a22;
+  color: #444;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  align-self: center;
+  transition: all 0.15s;
+}
+.give-up-btn:hover { border-color: #ff4444; color: #ff4444; }
+
+.btn-row { display: flex; gap: 12px; justify-content: center; margin-top: 8px; }
+
+.error {
+  color: #ff6666;
+  font-size: 13px;
+  margin-top: 4px;
+  font-family: 'Barlow', sans-serif;
+  text-align: center;
+  padding: 8px 12px;
+  background: rgba(255,68,68,0.06);
+  border-radius: 8px;
+}
+
+/* ===== HISTORY ===== */
+.history-box {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 12px 16px;
+  background: rgba(255,255,255,0.015);
+  border-radius: 12px;
+  border: 1px solid #1a1a22;
+}
+
+.history-item { display: flex; flex-direction: column; align-items: center; }
+
+.history-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  width: 100%;
+  background: rgba(255,255,255,0.02);
+}
+
+.history-badge {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #000;
+  flex-shrink: 0;
+}
+
+.history-name { font-size: 14px; font-weight: 700; }
+
+.chain-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2px 0;
+}
+.chain-dot { width: 3px; height: 3px; border-radius: 50%; background: #333; }
+.chain-line { width: 1px; height: 8px; background: #222; }
+
+/* ===== GAME OVER ===== */
+.game-over-box {
+  max-width: 520px;
+  width: 100%;
+  text-align: center;
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+.game-over-icon { font-size: 48px; }
+.game-over-title { font-size: 36px; font-weight: 900; letter-spacing: 6px; color: #666; }
+.final-score-row { display: flex; align-items: baseline; gap: 10px; justify-content: center; }
+.final-score { font-size: 72px; font-weight: 900; color: #ffaa00; line-height: 1; }
+.final-score-label { font-size: 18px; font-weight: 700; color: #666; letter-spacing: 3px; }
+
+/* ===== SCROLLBAR ===== */
+.history-box::-webkit-scrollbar { width: 4px; }
+.history-box::-webkit-scrollbar-track { background: transparent; }
+.history-box::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+
+/* ===== MOBILE ===== */
+@media (max-width: 480px) {
+  .container { padding: 16px; }
+  .landing { gap: 22px; }
+  .stats-bar { gap: 14px; padding: 12px 20px; }
 }
