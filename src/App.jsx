@@ -98,6 +98,7 @@ function Game({ onBack }) {
   const [error, setError] = useState("");
   const [gameOver, setGameOver] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [wrongAnswer, setWrongAnswer] = useState(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -139,14 +140,15 @@ function Game({ onBack }) {
       setInput("");
       triggerFlash();
     } else {
-      setError(result.explanation);
+      setWrongAnswer({ answer: input.trim(), explanation: result.explanation });
+      setGameOver(true);
     }
   };
 
   const giveUp = () => setGameOver(true);
   const reset = () => {
     setPhase("start"); setHistory([]); setCurrentItem(null);
-    setCurrentType(null); setInput(""); setError(""); setGameOver(false);
+    setCurrentType(null); setInput(""); setError(""); setGameOver(false); setWrongAnswer(null);
   };
 
   const activeColor = currentType ? TYPE_COLORS[currentType] : "#ff4444";
@@ -156,8 +158,14 @@ function Game({ onBack }) {
     return (
       <div className="container">
         <div className="game-over-box">
-          <div className="game-over-icon">🏁</div>
+          <div className="game-over-icon">{wrongAnswer ? "❌" : "🏁"}</div>
           <div className="game-over-title">GAME OVER</div>
+          {wrongAnswer && (
+            <div className="wrong-answer-box">
+              <div className="wrong-answer-text">"{wrongAnswer.answer}"</div>
+              <div className="wrong-answer-reason">{wrongAnswer.explanation}</div>
+            </div>
+          )}
           <div className="final-score-row">
             <span className="final-score">{history.length}</span>
             <span className="final-score-label">LINKS</span>
