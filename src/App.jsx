@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { validateStartTeam, validateChainLink, getStats } from "./data/lookup.js";
+import { validateStartTeam, validateChainLink, getStats, getRarityScore, getDailyTeam } from "./data/lookup.js";
 
 const TYPE_LABELS = { team: "TEAM", player: "PLAYER", college: "COLLEGE", number: "NUMBER" };
 const TYPE_COLORS = { team: "#ff4444", player: "#44aaff", college: "#ffaa00", number: "#44dd66" };
@@ -10,36 +10,31 @@ const TYPE_HINTS = {
   college: "Name a player who went to this school",
   number: "Name a player who wore this number",
 };
+const TYPE_EMOJI = { team: "🔴", player: "🔵", college: "🟡", number: "🟢" };
 
-function History({ history }) {
+function History({ history, showPoints }) {
   const ref = useRef(null);
-  useEffect(() => {
-    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
-  }, [history]);
-
+  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [history]);
   return (
     <div ref={ref} className="history-box">
       {history.map((item, i) => (
         <div key={i} className="history-item">
           <div className="history-link" style={{ borderLeft: `3px solid ${TYPE_COLORS[item.type]}` }}>
-            <span className="history-badge" style={{ background: TYPE_COLORS[item.type] }}>
-              {TYPE_LABELS[item.type]}
-            </span>
+            <span className="history-badge" style={{ background: TYPE_COLORS[item.type] }}>{TYPE_LABELS[item.type]}</span>
             <span className="history-name" style={{ color: TYPE_COLORS[item.type] }}>{item.name}</span>
+            {showPoints && item.points > 0 && <span className="history-pts">+{item.points}</span>}
           </div>
-          {i < history.length - 1 && <div className="chain-connector">
-            <div className="chain-dot" />
-            <div className="chain-line" />
-            <div className="chain-dot" />
-          </div>}
+          {i < history.length - 1 && <div className="chain-connector"><div className="chain-dot" /><div className="chain-line" /><div className="chain-dot" /></div>}
         </div>
       ))}
     </div>
   );
 }
 
-function Landing({ onStart }) {
+function Landing({ onFreePlay, onDaily }) {
   const stats = getStats();
+  const dailyTeam = getDailyTeam();
+  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   return (
     <div className="landing">
       <div className="logo-area">
@@ -48,25 +43,41 @@ function Landing({ onStart }) {
       </div>
       <p className="tagline">Chain teams, players, colleges & numbers.<br/>How deep does your knowledge go?</p>
 
-      <button className="start-btn" onClick={onStart}>
-        <span className="start-btn-text">PLAY THE CHAIN GAME</span>
-        <span className="start-btn-arrow">→</span>
-      </button>
+      <div className="mode-buttons">
+        <button className="mode-btn daily-btn" onClick={onDaily}>
+          <div className="mode-btn-top">
+            <span className="mode-btn-icon">📅</span>
+            <span className="mode-btn-title">DAILY CHALLENGE</span>
+          </div>
+          <div className="mode-btn-desc">
+            Today's team: <strong style={{color: TYPE_COLORS.team}}>{dailyTeam}</strong><br/>
+            10 links max · Rarity scoring · Share your score
+          </div>
+          <div className="mode-btn-date">{today}</div>
+        </button>
+        <button className="mode-btn free-btn" onClick={onFreePlay}>
+          <div className="mode-btn-top">
+            <span className="mode-btn-icon">♾️</span>
+            <span className="mode-btn-title">FREE PLAY</span>
+          </div>
+          <div className="mode-btn-desc">Pick any team. No limits. Go until you're stuck.</div>
+        </button>
+      </div>
 
       <div className="example-box">
-        <div className="example-label">EXAMPLE CHAIN</div>
+        <div className="example-label">HOW IT WORKS</div>
         <div className="example-chain">
-          <span className="ex" style={{background: TYPE_COLORS.team}}>Pittsburgh Steelers</span>
+          <span className="ex" style={{background: TYPE_COLORS.team}}>Steelers</span>
           <span className="ex-arrow">→</span>
-          <span className="ex" style={{background: TYPE_COLORS.player}}>Troy Polamalu</span>
+          <span className="ex" style={{background: TYPE_COLORS.player}}>Polamalu</span>
           <span className="ex-arrow">→</span>
           <span className="ex" style={{background: TYPE_COLORS.college}}>USC</span>
           <span className="ex-arrow">→</span>
-          <span className="ex" style={{background: TYPE_COLORS.player}}>Carson Palmer</span>
+          <span className="ex" style={{background: TYPE_COLORS.player}}>Palmer</span>
           <span className="ex-arrow">→</span>
-          <span className="ex" style={{background: TYPE_COLORS.team}}>Cincinnati Bengals</span>
+          <span className="ex" style={{background: TYPE_COLORS.team}}>Bengals</span>
           <span className="ex-arrow">→</span>
-          <span className="ex" style={{background: TYPE_COLORS.player}}>Joe Burrow</span>
+          <span className="ex" style={{background: TYPE_COLORS.player}}>Burrow</span>
           <span className="ex-arrow">→</span>
           <span className="ex" style={{background: TYPE_COLORS.number}}>9</span>
         </div>
@@ -89,26 +100,27 @@ function Landing({ onStart }) {
   );
 }
 
-function Game({ onBack }) {
-  const [phase, setPhase] = useState("start");
-  const [history, setHistory] = useState([]);
-  const [currentItem, setCurrentItem] = useState(null);
-  const [currentType, setCurrentType] = useState(null);
+function Game({ onBack, isDaily }) {
+  const dailyTeam = isDaily ? getDailyTeam() : null;
+  const maxLinks = isDaily ? 10 : Infinity;
+
+  const [phase, setPhase] = useState(isDaily ? "playing" : "start");
+  const [history, setHistory] = useState(isDaily ? [{ name: dailyTeam, type: "team", points: 0 }] : []);
+  const [currentItem, setCurrentItem] = useState(isDaily ? dailyTeam : null);
+  const [currentType, setCurrentType] = useState(isDaily ? "team" : null);
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
   const [gameOver, setGameOver] = useState(false);
-  const [flash, setFlash] = useState(false);
   const [wrongAnswer, setWrongAnswer] = useState(null);
+  const [flash, setFlash] = useState(false);
+  const [totalScore, setTotalScore] = useState(0);
+  const [shared, setShared] = useState(false);
   const inputRef = useRef(null);
 
-  useEffect(() => {
-    if (inputRef.current) inputRef.current.focus();
-  }, [phase, error, history]);
-
-  const triggerFlash = () => {
-    setFlash(true);
-    setTimeout(() => setFlash(false), 400);
-  };
+  useEffect(() => { if (inputRef.current) inputRef.current.focus(); }, [phase, error, history]);
+  const triggerFlash = () => { setFlash(true); setTimeout(() => setFlash(false), 400); };
+  const linksUsed = history.length > 0 ? history.length - 1 : 0;
+  const atLimit = isDaily && linksUsed >= maxLinks;
 
   const startGame = () => {
     if (!input.trim()) return;
@@ -116,29 +128,26 @@ function Game({ onBack }) {
     const result = validateStartTeam(input.trim());
     if (result.valid) {
       const name = result.corrected_name;
-      setCurrentItem(name);
-      setCurrentType("team");
-      setHistory([{ name, type: "team" }]);
-      setPhase("playing");
-      setInput("");
-      triggerFlash();
-    } else {
-      setError(result.explanation);
-    }
+      setCurrentItem(name); setCurrentType("team");
+      setHistory([{ name, type: "team", points: 0 }]);
+      setPhase("playing"); setInput(""); triggerFlash();
+    } else { setError(result.explanation); }
   };
 
   const submitAnswer = () => {
-    if (!input.trim()) return;
+    if (!input.trim() || atLimit) return;
     setError("");
     const result = validateChainLink(currentItem, currentType, input.trim());
     if (result.valid) {
       const name = result.corrected_name;
       const type = result.type;
-      setHistory((h) => [...h, { name, type }]);
-      setCurrentItem(name);
-      setCurrentType(type);
-      setInput("");
-      triggerFlash();
+      const points = isDaily ? getRarityScore(currentItem, currentType, name, type) : 0;
+      const newHistory = [...history, { name, type, points }];
+      setHistory(newHistory); setCurrentItem(name); setCurrentType(type);
+      setInput(""); setTotalScore(s => s + points); triggerFlash();
+      if (isDaily && newHistory.length - 1 >= maxLinks) {
+        setTimeout(() => setGameOver(true), 600);
+      }
     } else {
       setWrongAnswer({ answer: input.trim(), explanation: result.explanation });
       setGameOver(true);
@@ -146,20 +155,46 @@ function Game({ onBack }) {
   };
 
   const giveUp = () => setGameOver(true);
+
   const reset = () => {
-    setPhase("start"); setHistory([]); setCurrentItem(null);
-    setCurrentType(null); setInput(""); setError(""); setGameOver(false); setWrongAnswer(null);
+    if (isDaily) {
+      setHistory([{ name: dailyTeam, type: "team", points: 0 }]);
+      setCurrentItem(dailyTeam); setCurrentType("team"); setPhase("playing");
+    } else {
+      setHistory([]); setCurrentItem(null); setCurrentType(null); setPhase("start");
+    }
+    setInput(""); setError(""); setGameOver(false);
+    setWrongAnswer(null); setTotalScore(0); setShared(false);
+  };
+
+  const shareResult = async () => {
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const chain = history.map(h => TYPE_EMOJI[h.type]).join("");
+    let text = `🔗 Sports Link ${isDaily ? "Daily" : "Free Play"} — ${today}\n\n`;
+    text += `${chain}\n\n`;
+    text += `${linksUsed} link${linksUsed !== 1 ? "s" : ""}`;
+    if (isDaily) text += ` · ${totalScore} pts`;
+    text += wrongAnswer ? ` ❌` : (isDaily && linksUsed >= maxLinks) ? ` ✅` : ` 🏁`;
+    text += `\n\nsportslink1.vercel.app`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea"); ta.value = text;
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+    }
+    setShared(true); setTimeout(() => setShared(false), 2500);
   };
 
   const activeColor = currentType ? TYPE_COLORS[currentType] : "#ff4444";
   const activeBg = currentType ? TYPE_BG[currentType] : "transparent";
 
   if (gameOver) {
+    const completed = isDaily && !wrongAnswer && linksUsed >= maxLinks;
     return (
       <div className="container">
         <div className="game-over-box">
-          <div className="game-over-icon">{wrongAnswer ? "❌" : "🏁"}</div>
-          <div className="game-over-title">GAME OVER</div>
+          <div className="game-over-icon">{wrongAnswer ? "❌" : completed ? "🏆" : "🏁"}</div>
+          <div className="game-over-title">{completed ? "COMPLETE!" : "GAME OVER"}</div>
           {wrongAnswer && (
             <div className="wrong-answer-box">
               <div className="wrong-answer-text">"{wrongAnswer.answer}"</div>
@@ -167,10 +202,18 @@ function Game({ onBack }) {
             </div>
           )}
           <div className="final-score-row">
-            <span className="final-score">{history.length}</span>
-            <span className="final-score-label">LINKS</span>
+            <span className="final-score">{linksUsed}</span>
+            <span className="final-score-label">LINK{linksUsed !== 1 ? "S" : ""}</span>
+            {isDaily && <>
+              <span className="score-divider">·</span>
+              <span className="final-score">{totalScore}</span>
+              <span className="final-score-label">PTS</span>
+            </>}
           </div>
-          <History history={history} />
+          <History history={history} showPoints={isDaily} />
+          <div className="btn-row">
+            <button className="btn-share" onClick={shareResult}>{shared ? "✓ COPIED!" : "📋 SHARE RESULT"}</button>
+          </div>
           <div className="btn-row">
             <button className="btn-primary" onClick={reset}>PLAY AGAIN</button>
             <button className="btn-secondary" onClick={onBack}>MENU</button>
@@ -184,9 +227,17 @@ function Game({ onBack }) {
     <div className="container">
       <div className="header">
         <button className="back-btn" onClick={onBack}>← MENU</button>
-        <div className="score-pill">
-          <span className="score-pill-label">CHAIN</span>
-          <span className="score-pill-num">{history.length}</span>
+        <div className="score-area">
+          {isDaily && (
+            <div className="score-pill links-pill">
+              <span className="score-pill-label">LINKS</span>
+              <span className="score-pill-num" style={{color: linksUsed >= 8 ? "#ff6666" : "#e8e8e8"}}>{linksUsed}/{maxLinks}</span>
+            </div>
+          )}
+          <div className="score-pill">
+            <span className="score-pill-label">{isDaily ? "SCORE" : "CHAIN"}</span>
+            <span className="score-pill-num">{isDaily ? totalScore : history.length}</span>
+          </div>
         </div>
       </div>
 
@@ -195,15 +246,10 @@ function Game({ onBack }) {
           <div className="mode-title">START YOUR CHAIN</div>
           <p className="mode-desc">Pick any NFL, NBA, or MLB team to begin.</p>
           <div className="input-row">
-            <input
-              ref={inputRef}
-              className="game-input"
-              style={{ borderColor: "#ff4444", color: "#ff4444" }}
-              placeholder="Enter a team..."
-              value={input}
+            <input ref={inputRef} className="game-input" style={{ borderColor: "#ff4444", color: "#ff4444" }}
+              placeholder="Enter a team..." value={input}
               onChange={(e) => { setInput(e.target.value); setError(""); }}
-              onKeyDown={(e) => e.key === "Enter" && startGame()}
-            />
+              onKeyDown={(e) => e.key === "Enter" && startGame()} />
             <button className="btn-submit" style={{ background: "#ff4444" }} onClick={startGame}>GO</button>
           </div>
           {error && <div className="error">{error}</div>}
@@ -212,6 +258,7 @@ function Game({ onBack }) {
 
       {phase === "playing" && (
         <div className="play-box">
+          {isDaily && <div className="daily-banner">📅 DAILY CHALLENGE</div>}
           <div className={`current-section ${flash ? "flash" : ""}`} style={{ borderColor: activeColor, background: activeBg }}>
             <div className="current-top-row">
               <span className="type-badge" style={{ background: activeColor }}>{TYPE_LABELS[currentType]}</span>
@@ -221,22 +268,21 @@ function Game({ onBack }) {
             <div className="hint">{TYPE_HINTS[currentType]}</div>
           </div>
 
-          {history.length > 0 && <History history={history} />}
+          {history.length > 0 && <History history={history} showPoints={isDaily} />}
 
-          <div className="input-row">
-            <input
-              ref={inputRef}
-              className="game-input"
-              style={{ borderColor: activeColor, color: activeColor, background: activeBg }}
-              placeholder="Your answer..."
-              value={input}
-              onChange={(e) => { setInput(e.target.value); setError(""); }}
-              onKeyDown={(e) => e.key === "Enter" && submitAnswer()}
-            />
-            <button className="btn-submit" style={{ background: activeColor }} onClick={submitAnswer}>→</button>
-          </div>
-          {error && <div className="error">{error}</div>}
-          <button className="give-up-btn" onClick={giveUp}>I'M STUCK — END GAME</button>
+          {!atLimit && (
+            <>
+              <div className="input-row">
+                <input ref={inputRef} className="game-input" style={{ borderColor: activeColor, color: activeColor, background: activeBg }}
+                  placeholder="Your answer..." value={input}
+                  onChange={(e) => { setInput(e.target.value); setError(""); }}
+                  onKeyDown={(e) => e.key === "Enter" && submitAnswer()} />
+                <button className="btn-submit" style={{ background: activeColor }} onClick={submitAnswer}>→</button>
+              </div>
+              {error && <div className="error">{error}</div>}
+              {!isDaily && <button className="give-up-btn" onClick={giveUp}>I'M STUCK — END GAME</button>}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -244,7 +290,8 @@ function Game({ onBack }) {
 }
 
 export default function App() {
-  const [playing, setPlaying] = useState(false);
-  if (playing) return <Game onBack={() => setPlaying(false)} />;
-  return <div className="container"><Landing onStart={() => setPlaying(true)} /></div>;
+  const [mode, setMode] = useState(null);
+  if (mode === "free") return <Game onBack={() => setMode(null)} isDaily={false} />;
+  if (mode === "daily") return <Game onBack={() => setMode(null)} isDaily={true} />;
+  return <div className="container"><Landing onFreePlay={() => setMode("free")} onDaily={() => setMode("daily")} /></div>;
 }
