@@ -347,6 +347,28 @@ body {
 .final-score { font-size: 72px; font-weight: 900; color: #ffaa00; line-height: 1; }
 .final-score-label { font-size: 18px; font-weight: 700; color: #666; letter-spacing: 3px; }
 
+.wrong-answer-box {
+  padding: 14px 20px;
+  background: rgba(255,68,68,0.06);
+  border: 1px solid rgba(255,68,68,0.2);
+  border-radius: 10px;
+  width: 100%;
+  max-width: 400px;
+}
+.wrong-answer-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ff6666;
+  margin-bottom: 6px;
+  font-family: 'Barlow', sans-serif;
+}
+.wrong-answer-reason {
+  font-size: 13px;
+  color: #999;
+  font-family: 'Barlow', sans-serif;
+  line-height: 1.4;
+}
+
 /* ===== SCROLLBAR ===== */
 .history-box::-webkit-scrollbar { width: 4px; }
 .history-box::-webkit-scrollbar-track { background: transparent; }
